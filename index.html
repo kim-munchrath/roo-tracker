@@ -421,7 +421,7 @@
 
 <div class="header">
   <div class="header-inner">
-    <h1>Roo's <span>Health Log</span></h1>
+    <div><h1>Roo's <span>Health Log</span></h1><div id="sync-status" style="font-size:11px;color:var(--text-3);margin-top:2px"></div></div>
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchTab('log', this)">Log</button>
       <button class="tab-btn" onclick="switchTab('history', this)">Patterns</button>
@@ -540,13 +540,59 @@ const BRISTOL = [
   { n: 7, title: 'Watery, no solid pieces', desc: 'Fully liquid — no solid matter' },
 ];
 
-const STORAGE_KEY = 'roo_log_v1';
-function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; } }
-function persist(e) { localStorage.setItem(STORAGE_KEY, JSON.stringify(e)); }
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyv73n9EvlKPDmWJjXZXJ2vNgFIgH82fs6xMKNLYRFjIiRYwjaCHFB9y8HkiW5cuE2e/exec';
 
-let entries = load();
+let entries = [];
 let symptoms = { mucus: false, blood: false, straining: false, urgency: false };
 let selectedBristol = null;
+let isSaving = false;
+
+async function sheetGet(params) {
+  const url = SHEET_URL + '?' + new URLSearchParams(params);
+  const res = await fetch(url);
+  return res.json();
+}
+
+async function sheetPost(params) {
+  const url = SHEET_URL + '?' + new URLSearchParams(params);
+  await fetch(url);
+}
+
+function setStatus(msg, isError) {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--warn)' : 'var(--text-3)';
+}
+
+async function loadFromSheet() {
+  setStatus('Loading…');
+  try {
+    const rows = await sheetGet({ action: 'load' });
+    entries = rows.map(r => ({
+      id: String(r.id),
+      datetime: r.datetime,
+      bristol: Number(r.bristol),
+      mucus: r.mucus === true || r.mucus === 'TRUE',
+      blood: r.blood === true || r.blood === 'TRUE',
+      straining: r.straining === true || r.straining === 'TRUE',
+      urgency: r.urgency === true || r.urgency === 'TRUE',
+      note: r.note || '',
+    })).sort((a, b) => b.datetime.localeCompare(a.datetime));
+    setStatus('');
+    renderLog();
+    renderHistory();
+  } catch (err) {
+    setStatus('Could not load data — check your connection', true);
+  }
+}
+
+async function saveToSheet(entry) {
+  await sheetPost({ action: 'save', data: JSON.stringify(entry) });
+}
+
+async function updateInSheet(entry) {
+  await sheetPost({ action: 'update', data: JSON.stringify(entry) });
+}
 
 function init() {
   const now = new Date();
@@ -560,8 +606,7 @@ function init() {
       </div>
       <div class="bristol-check"></div>
     </div>`).join('');
-  renderLog();
-  renderHistory();
+  loadFromSheet();
 }
 
 function openForm() {
@@ -595,30 +640,49 @@ function toggleSymptom(key) {
   document.getElementById('tog-' + key).classList.toggle('on', symptoms[key]);
 }
 
-function saveEntry() {
+async function saveEntry() {
   if (!selectedBristol) { alert('Please select a consistency level.'); return; }
   const dateVal = document.getElementById('entry-date').value;
   const timeVal = document.getElementById('entry-time').value;
   if (!dateVal || !timeVal) { alert('Please set a date and time.'); return; }
-  if (editingId !== null) {
-    entries = entries.map(e => e.id === editingId ? { ...e, datetime: dateVal + 'T' + timeVal, bristol: selectedBristol, mucus: symptoms.mucus, blood: symptoms.blood, straining: symptoms.straining, urgency: symptoms.urgency, note: document.getElementById('entry-note').value.trim() } : e);
-    editingId = null;
-  } else {
-    entries.unshift({
-      id: Date.now(),
-      datetime: dateVal + 'T' + timeVal,
-      bristol: selectedBristol,
-      mucus: symptoms.mucus,
-      blood: symptoms.blood,
-      straining: symptoms.straining,
-      urgency: symptoms.urgency,
-      note: document.getElementById('entry-note').value.trim(),
-    });
+  if (isSaving) return;
+  isSaving = true;
+  setStatus('Saving…');
+  const btnSave = document.querySelector('.btn-save');
+  btnSave.textContent = 'Saving…';
+  btnSave.disabled = true;
+  try {
+    if (editingId !== null) {
+      const updated = { ...entries.find(e => e.id === editingId), datetime: dateVal + 'T' + timeVal, bristol: selectedBristol, mucus: symptoms.mucus, blood: symptoms.blood, straining: symptoms.straining, urgency: symptoms.urgency, note: document.getElementById('entry-note').value.trim() };
+      await updateInSheet(updated);
+      entries = entries.map(e => e.id === editingId ? updated : e);
+      editingId = null;
+    } else {
+      const entry = {
+        id: String(Date.now()),
+        datetime: dateVal + 'T' + timeVal,
+        bristol: selectedBristol,
+        mucus: symptoms.mucus,
+        blood: symptoms.blood,
+        straining: symptoms.straining,
+        urgency: symptoms.urgency,
+        note: document.getElementById('entry-note').value.trim(),
+      };
+      await saveToSheet(entry);
+      entries.unshift(entry);
+    }
+    setStatus('Saved ✓');
+    setTimeout(() => setStatus(''), 2000);
+    closeForm();
+    renderLog();
+    renderHistory();
+  } catch(err) {
+    setStatus('Save failed — check your connection', true);
+  } finally {
+    isSaving = false;
+    btnSave.textContent = 'Save entry';
+    btnSave.disabled = false;
   }
-  persist(entries);
-  closeForm();
-  renderLog();
-  renderHistory();
 }
 
 let editingId = null;
