@@ -653,9 +653,9 @@ async function saveEntry() {
   btnSave.disabled = true;
   try {
     if (editingId !== null) {
-      const updated = { ...entries.find(e => e.id === editingId), datetime: dateVal + 'T' + timeVal, bristol: selectedBristol, mucus: symptoms.mucus, blood: symptoms.blood, straining: symptoms.straining, urgency: symptoms.urgency, note: document.getElementById('entry-note').value.trim() };
+      const updated = { ...entries.find(e => String(e.id) === String(editingId)), datetime: dateVal + 'T' + timeVal, bristol: selectedBristol, mucus: symptoms.mucus, blood: symptoms.blood, straining: symptoms.straining, urgency: symptoms.urgency, note: document.getElementById('entry-note').value.trim() };
       await updateInSheet(updated);
-      entries = entries.map(e => e.id === editingId ? updated : e);
+      entries = entries.map(e => String(e.id) === String(editingId) ? updated : e);
       editingId = null;
     } else {
       const entry = {
@@ -688,7 +688,7 @@ async function saveEntry() {
 let editingId = null;
 
 function editEntry(id) {
-  const e = entries.find(x => x.id === id);
+  const e = entries.find(x => String(x.id) === String(id));
   if (!e) return;
   editingId = id;
   const [datePart, timePart] = e.datetime.split('T');
