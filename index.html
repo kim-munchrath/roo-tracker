@@ -322,12 +322,12 @@
   .entry-time {
     font-size: 12px;
     color: var(--text-3);
-    min-width: 44px;
+    min-width: 56px;
     padding-top: 2px;
-    line-height: 1.4;
-    text-align: center;
+    line-height: 1.5;
+    text-align: left;
   }
-  .entry-time strong { display: block; font-size: 13px; font-weight: 500; color: var(--text-2); }
+  .entry-time strong { display: block; font-size: 13px; font-weight: 600; color: var(--text); }
   .entry-body { flex: 1; }
   .entry-bristol { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 5px; }
   .entry-flags { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -588,7 +588,18 @@ async function loadFromSheet() {
     const rows = await sheetGet({ action: 'load' });
     entries = rows.map(r => ({
       id: String(r.id),
-      datetime: r.datetime,
+      datetime: (function(raw) {
+        if (!raw) return '';
+        // Already in correct format
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw)) return raw.slice(0,16);
+        // Parse whatever Google Sheets gives us
+        const d = new Date(raw);
+        if (!isNaN(d)) {
+          const pad = n => String(n).padStart(2,'0');
+          return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+        }
+        return raw;
+      })(r.datetime),
       bristol: Number(r.bristol),
       mucus: r.mucus === true || r.mucus === 'TRUE',
       blood: r.blood === true || r.blood === 'TRUE',
@@ -721,7 +732,10 @@ function editEntry(id) {
   selectedBristol = e.bristol;
   symptoms = { mucus: e.mucus, blood: e.blood, straining: e.straining, urgency: e.urgency };
   document.querySelectorAll('.bristol-option').forEach(el => el.classList.remove('selected'));
-  const esid = String(e.bristol).replace('.', '_'); document.getElementById('b' + esid).classList.add('selected');
+  const esid = String(e.bristol).replace('.', '_');
+  const bristolEl = document.getElementById('b' + esid);
+  if (bristolEl) bristolEl.classList.add('selected');
+  else selectedBristol = null; // old entry with unmapped score — let user re-select
   ['mucus','blood','straining','urgency'].forEach(key => {
     document.getElementById('tog-' + key).classList.toggle('on', e[key]);
   });
@@ -738,7 +752,7 @@ function entryCardHTML(e) {
   const flags = [e.blood && 'Blood', e.mucus && 'Mucus', e.straining && 'Straining', e.urgency && 'Urgency'].filter(Boolean);
   return `
     <div class="entry-card">
-      <div class="entry-time"><strong>${timeStr}</strong>${dateStr}</div>
+      <div class="entry-time"><strong>${dateStr}</strong>${timeStr}</div>
       <div class="entry-body">
         <div class="entry-bristol">Bristol ${e.bristol} — ${b ? b.title : ''}</div>
         ${flags.length ? `<div class="entry-flags">${flags.map(f => `<span class="flag flag-warn">${f}</span>`).join('')}</div>` : ''}
