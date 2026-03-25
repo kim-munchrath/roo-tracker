@@ -622,15 +622,20 @@ async function loadFromSheet() {
       id: String(r.id),
       datetime: (function(raw) {
         if (!raw) return '';
-        // Already in correct format
-        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw)) return raw.slice(0,16);
-        // Parse whatever Google Sheets gives us
+        const pad = n => String(n).padStart(2,'0');
+        // Already correct format YYYY-MM-DDTHH:MM
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(raw))) return String(raw).slice(0,16);
+        // Handle YYYY-MM-DD H:MM or YYYY-MM-DD HH:MM (space separator, possible missing leading zero)
+        const spaceMatch = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/);
+        if (spaceMatch) {
+          return `${spaceMatch[1]}-${spaceMatch[2]}-${spaceMatch[3]}T${pad(spaceMatch[4])}:${spaceMatch[5]}`;
+        }
+        // Try native Date parsing as fallback
         const d = new Date(raw);
         if (!isNaN(d)) {
-          const pad = n => String(n).padStart(2,'0');
           return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
         }
-        return raw;
+        return String(raw);
       })(r.datetime),
       bristol: Number(r.bristol),
       mucus: r.mucus === true || r.mucus === 'TRUE',
@@ -709,7 +714,15 @@ async function saveEntry() {
   if (!selectedBristol) { alert('Please select a consistency level.'); return; }
   const dateVal = document.getElementById('entry-date').value;
   const timeVal = document.getElementById('entry-time').value;
-  if (!dateVal || !timeVal) { alert('Please set a date and time.'); return; }
+  if (!dateVal) { alert('Please set a date.'); return; }
+  if (!timeVal) { alert('Please set a time.'); return; }
+  // Ensure datetime is always YYYY-MM-DDTHH:MM with leading zeros
+  const [yyyy, mm, dd] = dateVal.split('-');
+  const [hh, min] = timeVal.split(':');
+  if (!yyyy || !mm || !dd || !hh || !min) { alert('Date or time is incomplete. Please check and try again.'); return; }
+  const safeDate = `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+  const safeTime = `${hh.padStart(2,'0')}:${min.padStart(2,'0')}`;
+  const safeDatetime = `${safeDate}T${safeTime}`;
   if (isSaving) return;
   isSaving = true;
   setStatus('Saving…');
@@ -718,14 +731,14 @@ async function saveEntry() {
   btnSave.disabled = true;
   try {
     if (editingId !== null) {
-      const updated = { ...entries.find(e => String(e.id) === String(editingId)), datetime: dateVal + 'T' + timeVal, bristol: selectedBristol, mucus: symptoms.mucus, blood: symptoms.blood, straining: symptoms.straining, urgency: symptoms.urgency, note: document.getElementById('entry-note').value.trim() };
+      const updated = { ...entries.find(e => String(e.id) === String(editingId)), datetime: safeDatetime, bristol: selectedBristol, mucus: symptoms.mucus, blood: symptoms.blood, straining: symptoms.straining, urgency: symptoms.urgency, note: document.getElementById('entry-note').value.trim() };
       await updateInSheet(updated);
       entries = entries.map(e => String(e.id) === String(editingId) ? updated : e);
       editingId = null;
     } else {
       const entry = {
         id: String(Date.now()),
-        datetime: dateVal + 'T' + timeVal,
+        datetime: safeDatetime,
         bristol: selectedBristol,
         mucus: symptoms.mucus,
         blood: symptoms.blood,
