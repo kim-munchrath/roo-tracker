@@ -789,7 +789,7 @@ function editEntry(id) {
 }
 
 function entryCardHTML(e) {
-  const dt = new Date(e.datetime);
+  const dt = parseLocalDate(e.datetime);
   const timeStr = dt.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true });
   const dateStr = dt.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
   const b = BRISTOL.find(x => x.n === e.bristol);
@@ -839,7 +839,7 @@ function renderHistory() {
 
   const tod = { Morning: [], Afternoon: [], Evening: [], Night: [] };
   entries.forEach(e => {
-    const h = new Date(e.datetime).getHours();
+    const h = parseLocalDate(e.datetime).getHours();
     if (h >= 6 && h < 12) tod.Morning.push(e.bristol);
     else if (h >= 12 && h < 17) tod.Afternoon.push(e.bristol);
     else if (h >= 17 && h < 21) tod.Evening.push(e.bristol);
@@ -874,7 +874,7 @@ function exportLog() {
     const label = new Date(day + 'T12:00').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' });
     lines.push(`── ${label} (${de.length} trip${de.length!==1?'s':''}) ──`);
     de.forEach(e => {
-      const t = new Date(e.datetime).toLocaleTimeString('en-CA', { hour:'numeric', minute:'2-digit', hour12: true });
+      const t = parseLocalDate(e.datetime).toLocaleTimeString('en-CA', { hour:'numeric', minute:'2-digit', hour12: true });
       const flags = [e.blood&&'Blood', e.mucus&&'Mucus', e.straining&&'Straining', e.urgency&&'Urgency'].filter(Boolean);
       lines.push(`  ${t} · Bristol ${e.bristol}${flags.length?' · '+flags.join(', '):''}${e.note?' · Note: '+e.note:''}`);
     });
@@ -893,6 +893,14 @@ function switchTab(tab, btn) {
   document.getElementById('view-' + tab).classList.add('active');
   btn.classList.add('active');
   if (tab === 'history') renderHistory();
+}
+
+// Parse datetime string as LOCAL time (not UTC)
+function parseLocalDate(str) {
+  if (!str) return new Date();
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]);
+  return new Date(str);
 }
 
 function toggleScaleRef() {
