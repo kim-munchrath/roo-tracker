@@ -537,14 +537,14 @@
 
 <script>
 const BRISTOL = [
-  { n: 1,   title: 'Hard, dry, crumbly', desc: 'Hard, dry, crumbly', img: 'IMG_1' },
-  { n: 2,   title: 'Dry, starting to crumble', desc: 'OK — Dry, starting to crumble, leaves no residue', img: 'IMG_2' },
-  { n: 2.5, title: 'Clearly defined shape with visible cracks', desc: 'IDEAL — Clearly defined shape with visible cracks, leaves very little residue', img: 'IMG_2_5' },
-  { n: 3,   title: 'Moist, starting to lose shape and cracks', desc: 'OK — Moist, starting to lose shape and cracks', img: 'IMG_3' },
-  { n: 3.5, title: 'Moist, no cracks, distinct shape', desc: 'Moist, no cracks. Still has distinct shape', img: 'IMG_3_5' },
-  { n: 4,   title: 'Moist, little consistency, no real shape', desc: 'Moist with little consistency and no real shape. Still holds its moisture', img: 'IMG_4' },
-  { n: 4.5, title: 'Liquid, very little consistency', desc: 'Liquid, very little consistency, almost no shape', img: 'IMG_4_5' },
-  { n: 5,   title: 'Entirely liquid', desc: 'Entirely liquid', img: 'IMG_5' },
+  { n: 1.5, title: 'Hard, dry, crumbly', desc: 'Hard, dry, crumbly', img: 'IMG_1' },
+  { n: 3,   title: 'Dry, starting to crumble', desc: 'OK — Dry, starting to crumble, leaves no residue', img: 'IMG_2' },
+  { n: 4,   title: 'Clearly defined shape with visible cracks', desc: 'IDEAL — Clearly defined shape with visible cracks, leaves very little residue', img: 'IMG_2_5' },
+  { n: 4.5, title: 'Moist, starting to lose shape and cracks', desc: 'OK — Moist, starting to lose shape and cracks', img: 'IMG_3' },
+  { n: 5,   title: 'Moist, no cracks, distinct shape', desc: 'Moist, no cracks. Still has distinct shape', img: 'IMG_3_5' },
+  { n: 6,   title: 'Moist, little consistency, no real shape', desc: 'Moist with little consistency and no real shape. Still holds its moisture', img: 'IMG_4' },
+  { n: 6.5, title: 'Liquid, very little consistency', desc: 'Liquid, very little consistency, almost no shape', img: 'IMG_4_5' },
+  { n: 7,   title: 'Entirely liquid', desc: 'Entirely liquid', img: 'IMG_5' },
 ];
 
 
@@ -740,7 +740,7 @@ function entryCardHTML(e) {
     <div class="entry-card">
       <div class="entry-time"><strong>${timeStr}</strong>${dateStr}</div>
       <div class="entry-body">
-        <div class="entry-bristol">${e.bristol} — ${b ? b.title : ''}</div>
+        <div class="entry-bristol">Bristol ${e.bristol} — ${b ? b.title : ''}</div>
         ${flags.length ? `<div class="entry-flags">${flags.map(f => `<span class="flag flag-warn">${f}</span>`).join('')}</div>` : ''}
         ${e.note ? `<div class="entry-note">${e.note}</div>` : ''}
       </div>
@@ -774,7 +774,7 @@ function renderHistory() {
   const flagged = entries.filter(e => e.blood || e.mucus || e.straining || e.urgency).length;
 
   document.getElementById('stats-grid').innerHTML = `
-    <div class="stat-card"><div class="stat-label">Avg. RC scale</div><div class="stat-value">${avgBristol}</div><div class="stat-sub">across all entries</div></div>
+    <div class="stat-card"><div class="stat-label">Avg. consistency</div><div class="stat-value">Bristol ${avgBristol}</div><div class="stat-sub">across all entries</div></div>
     <div class="stat-card"><div class="stat-label">Avg. trips/day</div><div class="stat-value">${avgPerDay}</div><div class="stat-sub">over ${days} day${days!==1?'s':''}</div></div>
     <div class="stat-card"><div class="stat-label">Total logged</div><div class="stat-value">${entries.length}</div><div class="stat-sub">trips</div></div>
     <div class="stat-card"><div class="stat-label">Flagged trips</div><div class="stat-value">${flagged}</div><div class="stat-sub">with symptoms</div></div>`;
@@ -818,7 +818,7 @@ function exportLog() {
     de.forEach(e => {
       const t = new Date(e.datetime).toLocaleTimeString('en-CA', { hour:'numeric', minute:'2-digit', hour12: true });
       const flags = [e.blood&&'Blood', e.mucus&&'Mucus', e.straining&&'Straining', e.urgency&&'Urgency'].filter(Boolean);
-      lines.push(`  ${t} · ${e.bristol}${flags.length?' · '+flags.join(', '):''}${e.note?' · Note: '+e.note:''}`);
+      lines.push(`  ${t} · Bristol ${e.bristol}${flags.length?' · '+flags.join(', '):''}${e.note?' · Note: '+e.note:''}`);
     });
     lines.push('');
   });
