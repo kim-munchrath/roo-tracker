@@ -623,19 +623,17 @@ async function loadFromSheet() {
       datetime: (function(raw) {
         if (!raw) return '';
         const pad = n => String(n).padStart(2,'0');
-        // Already correct format YYYY-MM-DDTHH:MM
-        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(raw))) return String(raw).slice(0,16);
-        // Handle YYYY-MM-DD H:MM or YYYY-MM-DD HH:MM (space separator, possible missing leading zero)
-        const spaceMatch = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/);
-        if (spaceMatch) {
-          return `${spaceMatch[1]}-${spaceMatch[2]}-${spaceMatch[3]}T${pad(spaceMatch[4])}:${spaceMatch[5]}`;
-        }
-        // Try native Date parsing as fallback
-        const d = new Date(raw);
-        if (!isNaN(d)) {
-          return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
-        }
-        return String(raw);
+        const s = String(raw).trim();
+        // Format 1: already YYYY-MM-DDTHH:MM
+        const tMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{1,2}):(\d{2})/);
+        if (tMatch) return `${tMatch[1]}-${tMatch[2]}-${tMatch[3]}T${pad(tMatch[4])}:${tMatch[5]}`;
+        // Format 2: YYYY-MM-DD HH:MM or YYYY-MM-DD H:MM (Google Sheets space format)
+        const spaceMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/);
+        if (spaceMatch) return `${spaceMatch[1]}-${spaceMatch[2]}-${spaceMatch[3]}T${pad(spaceMatch[4])}:${spaceMatch[5]}`;
+        // Format 3: M/D/YYYY H:MM:SS (Google Sheets US locale)
+        const usMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+        if (usMatch) return `${usMatch[3]}-${pad(usMatch[1])}-${pad(usMatch[2])}T${pad(usMatch[4])}:${usMatch[5]}`;
+        return s;
       })(r.datetime),
       bristol: Number(r.bristol),
       mucus: r.mucus === true || r.mucus === 'TRUE',
@@ -900,7 +898,10 @@ function parseLocalDate(str) {
   if (!str) return new Date();
   const m = str.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
   if (m) return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]);
-  return new Date(str);
+  // Fallback: YYYY-MM-DD HH:MM (space separator)
+  const m2 = str.match(/^(\\d{4})-(\\d{2})-(\\d{2})\\s+(\\d{1,2}):(\\d{2})/);
+  if (m2) return new Date(+m2[1], +m2[2]-1, +m2[3], +m2[4], +m2[5]);
+  return new Date(); // never pass strings to Date constructor
 }
 
 function toggleScaleRef() {
