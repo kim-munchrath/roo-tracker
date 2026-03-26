@@ -868,19 +868,67 @@ function renderHistory() {
 
 function exportLog() {
   if (!entries.length) { alert('No entries to export yet.'); return; }
-  const lines = ["Roo's Health Log — Exported " + new Date().toLocaleDateString('en-CA', { year:'numeric', month:'long', day:'numeric' }), ""];
+
+  // ── Summary stats (matches the 4 tiles + time-of-day chart in Patterns tab) ──
+  const avgBristol = (entries.reduce((s,e) => s + e.bristol, 0) / entries.length).toFixed(1);
+  const days = new Set(entries.map(e => e.datetime.split('T')[0])).size;
+  const avgPerDay = (entries.length / days).toFixed(1);
+  const flagged = entries.filter(e => e.blood || e.mucus || e.straining || e.urgency).length;
+  const flagCounts = {
+    Blood:      entries.filter(e => e.blood).length,
+    Mucus:      entries.filter(e => e.mucus).length,
+    Straining:  entries.filter(e => e.straining).length,
+    Urgency:    entries.filter(e => e.urgency).length,
+  };
+  const flagDetail = Object.entries(flagCounts)
+    .filter(([,n]) => n > 0)
+    .map(([label, n]) => `${n} ${label}`)
+    .join(', ');
+
+  const tod = { Morning: [], Afternoon: [], Evening: [], Night: [] };
+  entries.forEach(e => {
+    const h = parseLocalDate(e.datetime).getHours();
+    if (h >= 6 && h < 12) tod.Morning.push(e.bristol);
+    else if (h >= 12 && h < 17) tod.Afternoon.push(e.bristol);
+    else if (h >= 17 && h < 21) tod.Evening.push(e.bristol);
+    else tod.Night.push(e.bristol);
+  });
+
+  const lines = [
+    "Roo's Health Log — Exported " + new Date().toLocaleDateString('en-CA', { year:'numeric', month:'long', day:'numeric' }),
+    "",
+    "── Summary ──",
+    `  Avg. consistency:  Bristol ${avgBristol}`,
+    `  Avg. trips/day:    ${avgPerDay} (over ${days} day${days!==1?'s':''})`,
+    `  Total logged:      ${entries.length} trips`,
+    `  Flagged trips:     ${flagged} with symptoms${flagDetail ? ' (' + flagDetail + ')' : ''}`,
+    "",
+    "── Avg. consistency by time of day ──",
+  ];
+  Object.entries(tod).forEach(([label, vals]) => {
+    if (vals.length) {
+      const avg = (vals.reduce((a,b) => a+b, 0) / vals.length).toFixed(1);
+      lines.push(`  ${label.padEnd(10)} Bristol ${avg}  (${vals.length} trip${vals.length!==1?'s':''})`);
+    }
+  });
+  lines.push("");
+
+  // ── Full log, newest date first, newest time first within each day ──
+  lines.push("── Full Log ──");
+  lines.push("");
   const grouped = {};
   entries.forEach(e => { const d = e.datetime.split('T')[0]; if (!grouped[d]) grouped[d] = []; grouped[d].push(e); });
-  Object.entries(grouped).sort((a,b) => a[0].localeCompare(b[0])).forEach(([day, de]) => {
+  Object.entries(grouped).sort((a,b) => b[0].localeCompare(a[0])).forEach(([day, de]) => {
     const label = new Date(day + 'T12:00').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' });
     lines.push(`── ${label} (${de.length} trip${de.length!==1?'s':''}) ──`);
-    de.forEach(e => {
+    [...de].sort((a,b) => b.datetime.localeCompare(a.datetime)).forEach(e => {
       const t = parseLocalDate(e.datetime).toLocaleTimeString('en-CA', { hour:'numeric', minute:'2-digit', hour12: true });
       const flags = [e.blood&&'Blood', e.mucus&&'Mucus', e.straining&&'Straining', e.urgency&&'Urgency'].filter(Boolean);
       lines.push(`  ${t} · Bristol ${e.bristol}${flags.length?' · '+flags.join(', '):''}${e.note?' · Note: '+e.note:''}`);
     });
     lines.push('');
   });
+
   navigator.clipboard.writeText(lines.join('\n')).then(() => {
     const el = document.getElementById('export-success');
     el.style.display = 'block';
