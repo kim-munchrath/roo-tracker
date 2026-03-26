@@ -817,7 +817,7 @@ function renderLog() {
     list.innerHTML = `<div class="empty-state"><div class="emoji">🐾</div><p>No entries yet.<br>Tap "Log a trip" to get started.</p></div>`;
     return;
   }
-  list.innerHTML = entries.slice(0, 10).map(entryCardHTML).join('');
+  list.innerHTML = entries.slice(0, 10).map(e => entryCardHTML(e)).join('');
 }
 
 function renderHistory() {
