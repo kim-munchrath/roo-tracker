@@ -624,20 +624,18 @@ async function loadFromSheet() {
         if (!raw) return '';
         const pad = n => String(n).padStart(2,'0');
         const s = String(raw).trim();
-        // Format 0: Full UTC ISO string with Z or timezone offset (e.g. from Google Sheets Date serialization)
-        if (/[Z]$|[+-]\d{2}:?\d{2}$/.test(s) && !isNaN(new Date(s))) {
-          const d = new Date(s);
-          return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        }
-        // Format 1: already YYYY-MM-DDTHH:MM
+        // Format 1: already YYYY-MM-DDTHH:MM (no timezone — treat as local, do NOT pass to new Date())
         const tMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{1,2}):(\d{2})/);
         if (tMatch) return `${tMatch[1]}-${tMatch[2]}-${tMatch[3]}T${pad(tMatch[4])}:${tMatch[5]}`;
-        // Format 2: YYYY-MM-DD HH:MM or YYYY-MM-DD H:MM (Google Sheets space format)
+        // Format 2: YYYY-MM-DD HH:MM or YYYY-MM-DD H:MM (Google Sheets space format, no timezone)
         const spaceMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/);
         if (spaceMatch) return `${spaceMatch[1]}-${spaceMatch[2]}-${spaceMatch[3]}T${pad(spaceMatch[4])}:${spaceMatch[5]}`;
-        // Format 3: M/D/YYYY H:MM:SS (Google Sheets US locale)
+        // Format 3: M/D/YYYY H:MM:SS (Google Sheets US locale, no timezone)
         const usMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
         if (usMatch) return `${usMatch[3]}-${pad(usMatch[1])}-${pad(usMatch[2])}T${pad(usMatch[4])}:${usMatch[5]}`;
+        // Fallback: let the browser parse it (handles "Fri Mar 20 2026 08:29:00 GMT-0400 (...)" etc.)
+        const d = new Date(s);
+        if (!isNaN(d)) return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         return s;
       })(r.datetime),
       bristol: Number(r.bristol),
