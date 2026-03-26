@@ -789,7 +789,7 @@ function editEntry(id) {
   setTimeout(() => form.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
 }
 
-function entryCardHTML(e) {
+function entryCardHTML(e, readOnly = false) {
   const dt = parseLocalDate(e.datetime);
   const timeStr = dt.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true });
   const dateStr = dt.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
@@ -803,9 +803,9 @@ function entryCardHTML(e) {
         ${flags.length ? `<div class="entry-flags">${flags.map(f => `<span class="flag flag-warn">${f}</span>`).join('')}</div>` : ''}
         ${e.note ? `<div class="entry-note">${e.note}</div>` : ''}
       </div>
-      <button class="entry-edit" onclick="editEntry(${e.id})" title="Edit">
+      ${readOnly ? '' : `<button class="entry-edit" onclick="editEntry(${e.id})" title="Edit">
         <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M9 2l2 2-6.5 6.5L2 11l.5-2.5L9 2z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
+      </button>`}
     </div>`;
 }
 
@@ -831,12 +831,21 @@ function renderHistory() {
   const days = new Set(entries.map(e => e.datetime.split('T')[0])).size;
   const avgPerDay = (entries.length / days).toFixed(1);
   const flagged = entries.filter(e => e.blood || e.mucus || e.straining || e.urgency).length;
+  const flagBreakdown = [
+    ['Urgency',   entries.filter(e => e.urgency).length],
+    ['Straining', entries.filter(e => e.straining).length],
+    ['Mucus',     entries.filter(e => e.mucus).length],
+    ['Blood',     entries.filter(e => e.blood).length],
+  ].filter(([,n]) => n > 0);
+  const flagSubHTML = flagBreakdown.length
+    ? flagBreakdown.map(([label, n]) => `<div class="stat-sub">${label} — ${n} trip${n!==1?'s':''}</div>`).join('')
+    : `<div class="stat-sub">none recorded</div>`;
 
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card"><div class="stat-label">Avg. consistency</div><div class="stat-value">Bristol ${avgBristol}</div><div class="stat-sub">across all entries</div></div>
     <div class="stat-card"><div class="stat-label">Avg. trips/day</div><div class="stat-value">${avgPerDay}</div><div class="stat-sub">over ${days} day${days!==1?'s':''}</div></div>
     <div class="stat-card"><div class="stat-label">Total logged</div><div class="stat-value">${entries.length}</div><div class="stat-sub">trips</div></div>
-    <div class="stat-card"><div class="stat-label">Flagged trips</div><div class="stat-value">${flagged}</div><div class="stat-sub">with symptoms</div></div>`;
+    <div class="stat-card"><div class="stat-label">Flagged trips</div><div class="stat-value">${flagged}</div>${flagSubHTML}</div>`;
 
   const tod = { Morning: [], Afternoon: [], Evening: [], Night: [] };
   entries.forEach(e => {
@@ -862,7 +871,7 @@ function renderHistory() {
     .sort((a,b) => b[0].localeCompare(a[0]))
     .map(([day, de]) => {
       const label = new Date(day + 'T12:00').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' });
-      return `<div class="log-day-header">${label} · ${de.length} trip${de.length!==1?'s':''}</div>${de.map(entryCardHTML).join('')}`;
+      return `<div class="log-day-header">${label} · ${de.length} trip${de.length!==1?'s':''}</div>${de.map(e => entryCardHTML(e, true)).join('')}`;
     }).join('');
 }
 
